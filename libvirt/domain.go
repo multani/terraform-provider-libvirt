@@ -27,6 +27,9 @@ const useQemuAgentEnvVar = "TF_USE_QEMU_AGENT"
 const domWaitLeaseStillWaiting = "waiting-addresses"
 const domWaitLeaseDone = "all-addresses-obtained"
 
+const domWaitShutdownStillWaiting = "waiting-shutdown"
+const domWaitShutdownDone = "shutdown-completed"
+
 var errDomainInvalidState = errors.New("invalid state for domain")
 
 func domainWaitForLeases(domain *libvirt.Domain, waitForLeases []*libvirtxml.DomainInterface,
@@ -73,8 +76,8 @@ func domainWaitForLeases(domain *libvirt.Domain, waitForLeases []*libvirtxml.Dom
 		Target:     []string{domWaitLeaseDone},
 		Refresh:    waitFunc,
 		Timeout:    timeout,
-		MinTimeout: 10 * time.Second,
-		Delay:      5 * time.Second,
+		MinTimeout: 5 * time.Second,
+		Delay:      1 * time.Second,
 	}
 
 	_, err := stateConf.WaitForState()
@@ -778,6 +781,36 @@ func destroyDomainByUserRequest(d *schema.ResourceData, domain *libvirt.Domain) 
 	if err != nil {
 		return fmt.Errorf("Error retrieving libvirt domain id: %s", err)
 	}
+
+	timeout := 30 * time.Second
+	waitFunc := func() (interface{}, string, error) {
+
+		state, err := domainGetState(*domain)
+		if err != nil {
+			return false, "", err
+		}
+
+		for _, offState := range []string{"crashed", "shutoff", "shutdown", "pmsuspended"} {
+			if state == offState {
+				return true, domWaitShutdownDone, nil
+			}
+		}
+
+		log.Printf("[DEBUG] domain not yet shutdown: %s", state)
+		return false, domWaitShutdownDone, nil
+	}
+
+	stateConf := &resource.StateChangeConf{
+		Pending:    []string{domWaitShutdownStillWaiting},
+		Target:     []string{domWaitShutdownDone},
+		Refresh:    waitFunc,
+		Timeout:    timeout,
+		MinTimeout: 5 * time.Second,
+		Delay:      1 * time.Second,
+	}
+
+	_, err = stateConf.WaitForState()
+	log.Print("[DEBUG] shutdown was successful")
 
 	log.Printf("Destroying libvirt domain %s", domainID)
 	state, _, err := domain.GetState()

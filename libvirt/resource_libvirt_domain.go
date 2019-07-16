@@ -14,6 +14,8 @@ import (
 	"github.com/hashicorp/terraform/helper/schema"
 	libvirt "github.com/libvirt/libvirt-go"
 	libvirtxml "github.com/libvirt/libvirt-go-xml"
+
+	"github.com/hashicorp/terraform/helper/resource"
 )
 
 type pendingMapping struct {
@@ -24,6 +26,38 @@ type pendingMapping struct {
 
 func init() {
 	spew.Config.Indent = "\t"
+}
+
+func ddomainGetState(domain libvirt.Domain) (string, error) {
+	state, _, err := domain.GetState()
+	if err != nil {
+		return "", err
+	}
+
+	var stateStr string
+
+	switch state {
+	case libvirt.DOMAIN_NOSTATE:
+		stateStr = "nostate"
+	case libvirt.DOMAIN_RUNNING:
+		stateStr = "running"
+	case libvirt.DOMAIN_BLOCKED:
+		stateStr = "blocked"
+	case libvirt.DOMAIN_PAUSED:
+		stateStr = "paused"
+	case libvirt.DOMAIN_SHUTDOWN:
+		stateStr = "shutdown"
+	case libvirt.DOMAIN_CRASHED:
+		stateStr = "crashed"
+	case libvirt.DOMAIN_PMSUSPENDED:
+		stateStr = "pmsuspended"
+	case libvirt.DOMAIN_SHUTOFF:
+		stateStr = "shutoff"
+	default:
+		stateStr = fmt.Sprintf("unknown: %v", state)
+	}
+
+	return stateStr, nil
 }
 
 func resourceLibvirtDomain() *schema.Resource {
@@ -976,6 +1010,44 @@ func resourceLibvirtDomainDelete(d *schema.ResourceData, meta interface{}) error
 	}
 
 	if state == libvirt.DOMAIN_RUNNING || state == libvirt.DOMAIN_PAUSED {
+		log.Print("[DEBUG] Shutting down domain %s", d.Id())
+		if err := domain.Shutdown(); err != nil {
+			return fmt.Errorf("Couldn't shutdown libvirt domain: %s", err)
+		}
+
+		// start wait
+		timeout := 30 * time.Second
+		waitFunc := func() (interface{}, string, error) {
+
+			state, err := ddomainGetState(*domain)
+			if err != nil {
+				return false, "", err
+			}
+
+			for _, offState := range []string{"crashed", "shutoff", "shutdown", "pmsuspended"} {
+				if state == offState {
+					return true, domWaitShutdownDone, nil
+				}
+			}
+
+			log.Printf("[DEBUG] domain not yet shutdown: %s", state)
+			return false, domWaitShutdownDone, nil
+		}
+
+		stateConf := &resource.StateChangeConf{
+			Pending:    []string{domWaitShutdownStillWaiting},
+			Target:     []string{domWaitShutdownDone},
+			Refresh:    waitFunc,
+			Timeout:    timeout,
+			MinTimeout: 5 * time.Second,
+			Delay:      1 * time.Second,
+		}
+
+		_, err = stateConf.WaitForState()
+		log.Print("[DEBUG] shutdown was successful")
+
+		// stop wait
+
 		if err := domain.Destroy(); err != nil {
 			return fmt.Errorf("Couldn't destroy libvirt domain: %s", err)
 		}
