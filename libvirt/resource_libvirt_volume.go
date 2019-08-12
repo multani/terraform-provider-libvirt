@@ -58,6 +58,10 @@ func resourceLibvirtVolume() *schema.Resource {
 				Optional: true,
 				ForceNew: true,
 			},
+			"wipe_algorithm": {
+				Type:     schema.TypeString,
+				Optional: true,
+			},
 			"xml": {
 				Type:     schema.TypeList,
 				Optional: true,
@@ -338,7 +342,7 @@ func resourceLibvirtVolumeDelete(d *schema.ResourceData, meta interface{}) error
 		return fmt.Errorf(LibVirtConIsNil)
 	}
 
-	return volumeDelete(client, d.Id())
+	return volumeDelete(client, d.Id(), d.Get("wipe_algorithm").(string))
 }
 
 // resourceLibvirtVolumeExists returns True if the volume resource exists
