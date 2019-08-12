@@ -109,7 +109,7 @@ func resourceCloudInitDiskDelete(d *schema.ResourceData, meta interface{}) error
 		return err
 	}
 
-	return volumeDelete(client, key)
+	return volumeDelete(client, key, "")
 }
 
 func resourceCloudInitDiskExists(d *schema.ResourceData, meta interface{}) (bool, error) {

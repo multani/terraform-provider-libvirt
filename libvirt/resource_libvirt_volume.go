@@ -14,6 +14,7 @@ func resourceLibvirtVolume() *schema.Resource {
 		Read:   resourceLibvirtVolumeRead,
 		Delete: resourceLibvirtVolumeDelete,
 		Exists: resourceLibvirtVolumeExists,
+		Update: resourceLibvirtVolumeUpdate,
 		Schema: map[string]*schema.Schema{
 			"name": {
 				Type:     schema.TypeString,
@@ -57,6 +58,11 @@ func resourceLibvirtVolume() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 				ForceNew: true,
+			},
+			"wipe_algorithm": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "",
 			},
 			"xml": {
 				Type:     schema.TypeList,
@@ -338,7 +344,7 @@ func resourceLibvirtVolumeDelete(d *schema.ResourceData, meta interface{}) error
 		return fmt.Errorf(LibVirtConIsNil)
 	}
 
-	return volumeDelete(client, d.Id())
+	return volumeDelete(client, d.Id(), d.Get("wipe_algorithm").(string))
 }
 
 // resourceLibvirtVolumeExists returns True if the volume resource exists
@@ -358,4 +364,8 @@ func resourceLibvirtVolumeExists(d *schema.ResourceData, meta interface{}) (bool
 	defer volume.Free()
 
 	return true, nil
+}
+
+func resourceLibvirtVolumeUpdate(d *schema.ResourceData, meta interface{}) error {
+	return resourceLibvirtVolumeUpdate(d, meta)
 }

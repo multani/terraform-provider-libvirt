@@ -67,7 +67,7 @@ func volumeWaitDeleted(virConn *libvirt.Connect, key string) error {
 }
 
 // volumeDelete removes the volume identified by `key` from libvirt
-func volumeDelete(client *Client, key string) error {
+func volumeDelete(client *Client, key string, wipeAlgorithm string) error {
 	volume, err := client.libvirt.LookupStorageVolByKey(key)
 	if err != nil {
 		return fmt.Errorf("Can't retrieve volume %s: %v", key, err)
@@ -102,12 +102,52 @@ func volumeDelete(client *Client, key string) error {
 		return fmt.Errorf("Can't retrieve volume %s XML desc: %s", key, err)
 	}
 
+	if wipeAlgorithm != "" {
+		algorithm, err := wipeAlgorithmFromString(wipeAlgorithm)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("Wiping volume %s using %s", key, wipeAlgorithm)
+		err = volume.WipePattern(algorithm, 0)
+		if err != nil {
+			return fmt.Errorf("Can't wipe volume %s: %s", key, err)
+		}
+	}
+
 	err = volume.Delete(0)
 	if err != nil {
 		return fmt.Errorf("Can't delete volume %s: %s", key, err)
 	}
 
 	return volumeWaitDeleted(client.libvirt, key)
+}
+
+func wipeAlgorithmFromString(algorithm string) (libvirt.StorageVolWipeAlgorithm, error) {
+	switch algorithm {
+	case "zero":
+		return libvirt.STORAGE_VOL_WIPE_ALG_ZERO, nil
+	case "nnsa":
+		return libvirt.STORAGE_VOL_WIPE_ALG_NNSA, nil
+	case "dod":
+		return libvirt.STORAGE_VOL_WIPE_ALG_DOD, nil
+	case "bsi":
+		return libvirt.STORAGE_VOL_WIPE_ALG_BSI, nil
+	case "gutmann":
+		return libvirt.STORAGE_VOL_WIPE_ALG_GUTMANN, nil
+	case "schneier":
+		return libvirt.STORAGE_VOL_WIPE_ALG_SCHNEIER, nil
+	case "pfitzner7":
+		return libvirt.STORAGE_VOL_WIPE_ALG_PFITZNER7, nil
+	case "pfitzner33":
+		return libvirt.STORAGE_VOL_WIPE_ALG_PFITZNER33, nil
+	case "random":
+		return libvirt.STORAGE_VOL_WIPE_ALG_RANDOM, nil
+	case "trim":
+		return libvirt.STORAGE_VOL_WIPE_ALG_TRIM, nil
+	default:
+		return libvirt.STORAGE_VOL_WIPE_ALG_ZERO, fmt.Errorf("Unknown wipe algorithm: %s", algorithm)
+	}
 }
 
 // tries really hard to find volume with `key`
