@@ -11,6 +11,7 @@
 #
 name: release
 on:
+  branches: ["*"]
   push:
     tags:
       - 'v*'
@@ -19,16 +20,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       -
+        name: Install dependencies
+        run: sudo apt-get update && apt-get install libvirt-dev
+      -
         name: Checkout
         uses: actions/checkout@v2
       -
         name: Unshallow
         run: git fetch --prune --unshallow
-
-      -
-        name: Install dependencies
-        run: apt-get update && apt-get install libvirt-dev
-
       -
         name: Set up Go
         uses: actions/setup-go@v2
