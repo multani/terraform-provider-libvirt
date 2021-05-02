@@ -24,6 +24,11 @@ jobs:
       -
         name: Unshallow
         run: git fetch --prune --unshallow
+
+      -
+        name: Install dependencies
+        run: apt-get update && apt-get install libvirt-dev
+
       -
         name: Set up Go
         uses: actions/setup-go@v2
