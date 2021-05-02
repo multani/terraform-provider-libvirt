@@ -11,8 +11,9 @@
 #
 name: release
 on:
-  branches: ["*"]
   push:
+    branches:
+      - "*"
     tags:
       - 'v*'
 jobs:
