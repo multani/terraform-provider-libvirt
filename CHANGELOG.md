@@ -1,3 +1,17 @@
+## Unreleased
+
+### HIGHLIGHTS:
+
+#### libvirt Domain
+
+* domain: graceful ACPI shutdown when setting `running = false`; forcibly powers off
+  the domain only if it has not stopped within one minute.
+
+#### libvirt Network
+
+* network: new `running` attribute to activate or deactivate a network without
+  destroying it. Defaults to `true`. Supported both at creation time and via update.
+
 ## 0.5.1 (December 14, 2018)
 
 ### HIGHLIGHTS:

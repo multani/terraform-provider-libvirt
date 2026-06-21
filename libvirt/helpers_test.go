@@ -159,6 +159,33 @@ func testAccCheckNetworkExists(name string, network *libvirt.Network) resource.T
 	}
 }
 
+func testAccCheckNetworkActive(name string, expectedActive bool) resource.TestCheckFunc {
+	return func(state *terraform.State) error {
+		rs, err := getResourceFromTerraformState(name, state)
+		if err != nil {
+			return err
+		}
+
+		virConn := testAccProvider.Meta().(*Client).libvirt
+		network, err := virConn.LookupNetworkByUUIDString(rs.Primary.ID)
+		if err != nil {
+			return err
+		}
+		defer network.Free()
+
+		active, err := network.IsActive()
+		if err != nil {
+			return fmt.Errorf("Error checking network active state: %s", err)
+		}
+
+		if active != expectedActive {
+			return fmt.Errorf("Expected network active=%v but got active=%v", expectedActive, active)
+		}
+
+		return nil
+	}
+}
+
 // testAccCheckLibvirtNetworkDestroy checks that the network has been destroyed
 func testAccCheckLibvirtNetworkDestroy(s *terraform.State) error {
 	virtConn := testAccProvider.Meta().(*Client).libvirt

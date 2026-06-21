@@ -136,6 +136,9 @@ The following arguments are supported:
    Libvirt version 5.1 and greater will advertise this value to nodes via DHCP.
 * `autostart` - (Optional) Set to `true` to start the network on host boot up.
   If not specified `false` is assumed.
+* `running` - (Optional) Set to `false` to define the network without activating it.
+  Defaults to `true`. Can be toggled to start or stop the network after creation
+  without destroying it.
 * `routes` - (Optional) a list of static routes. A `cidr` and a `gateway` must
   be provided. The `gateway` must be reachable via the bridge interface.
 * `dns` - (Optional) configuration of DNS specific settings for the network

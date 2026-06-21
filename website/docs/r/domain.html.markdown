@@ -36,6 +36,8 @@ The following arguments are supported:
   will be created with 512 MiB of memory be used.
 * `running` - (Optional) Use `false` to turn off the instance. If not specified,
   true is assumed and the instance, if stopped, will be started at next apply.
+  When set to `false`, the domain will first receive an ACPI shutdown signal;
+  if it has not stopped within one minute, it will be forcibly powered off.
 * `disk` - (Optional) An array of one or more disks to attach to the domain. The
   `disk` object structure is documented [below](#handling-disks).
 * `network_interface` - (Optional) An array of one or more network interfaces to
