@@ -1513,6 +1513,54 @@ func TestAccLibvirtDomain_ShutoffMultiDomainsRunning(t *testing.T) {
 	})
 }
 
+func TestAccLibvirtDomain_UpdateRunning(t *testing.T) {
+	var domain libvirt.Domain
+	randomDomainName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckLibvirtDomainDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: fmt.Sprintf(`
+				resource "libvirt_domain" "%s" {
+					name    = "%s"
+					vcpu    = 1
+					running = true
+				}`, randomDomainName, randomDomainName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckLibvirtDomainExists("libvirt_domain."+randomDomainName, &domain),
+					testAccCheckLibvirtDomainStateEqual("libvirt_domain."+randomDomainName, &domain, "running"),
+				),
+			},
+			{
+				Config: fmt.Sprintf(`
+				resource "libvirt_domain" "%s" {
+					name    = "%s"
+					vcpu    = 1
+					running = false
+				}`, randomDomainName, randomDomainName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckLibvirtDomainExists("libvirt_domain."+randomDomainName, &domain),
+					testAccCheckLibvirtDomainStateEqual("libvirt_domain."+randomDomainName, &domain, "shutoff"),
+				),
+			},
+			{
+				Config: fmt.Sprintf(`
+				resource "libvirt_domain" "%s" {
+					name    = "%s"
+					vcpu    = 1
+					running = true
+				}`, randomDomainName, randomDomainName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckLibvirtDomainExists("libvirt_domain."+randomDomainName, &domain),
+					testAccCheckLibvirtDomainStateEqual("libvirt_domain."+randomDomainName, &domain, "running"),
+				),
+			},
+		},
+	})
+}
+
 func TestAccLibvirtDomain_CaseInsensitiveAttrs_MAC(t *testing.T) {
 	randomDomainName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
 	var config = fmt.Sprintf(`

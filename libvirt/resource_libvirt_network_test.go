@@ -669,3 +669,93 @@ func TestAccLibvirtNetwork_DnsmasqOptions(t *testing.T) {
 		},
 	})
 }
+
+func TestAccLibvirtNetwork_Running(t *testing.T) {
+	skipIfPrivilegedDisabled(t)
+
+	var network libvirt.Network
+	randomNetworkResource := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
+	randomNetworkName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckLibvirtNetworkDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: fmt.Sprintf(`
+				resource "libvirt_network" "%s" {
+					name      = "%s"
+					mode      = "nat"
+					domain    = "k8s.local"
+					addresses = ["10.17.3.0/24"]
+					running   = true
+				}`, randomNetworkResource, randomNetworkName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckNetworkExists("libvirt_network."+randomNetworkResource, &network),
+					resource.TestCheckResourceAttr("libvirt_network."+randomNetworkResource, "running", "true"),
+					testAccCheckNetworkActive("libvirt_network."+randomNetworkResource, true),
+				),
+			},
+			{
+				Config: fmt.Sprintf(`
+				resource "libvirt_network" "%s" {
+					name      = "%s"
+					mode      = "nat"
+					domain    = "k8s.local"
+					addresses = ["10.17.3.0/24"]
+					running   = false
+				}`, randomNetworkResource, randomNetworkName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckNetworkExists("libvirt_network."+randomNetworkResource, &network),
+					resource.TestCheckResourceAttr("libvirt_network."+randomNetworkResource, "running", "false"),
+					testAccCheckNetworkActive("libvirt_network."+randomNetworkResource, false),
+				),
+			},
+			{
+				Config: fmt.Sprintf(`
+				resource "libvirt_network" "%s" {
+					name      = "%s"
+					mode      = "nat"
+					domain    = "k8s.local"
+					addresses = ["10.17.3.0/24"]
+					running   = true
+				}`, randomNetworkResource, randomNetworkName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckNetworkExists("libvirt_network."+randomNetworkResource, &network),
+					resource.TestCheckResourceAttr("libvirt_network."+randomNetworkResource, "running", "true"),
+					testAccCheckNetworkActive("libvirt_network."+randomNetworkResource, true),
+				),
+			},
+		},
+	})
+}
+
+func TestAccLibvirtNetwork_CreateInactive(t *testing.T) {
+	skipIfPrivilegedDisabled(t)
+
+	var network libvirt.Network
+	randomNetworkResource := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
+	randomNetworkName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckLibvirtNetworkDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: fmt.Sprintf(`
+				resource "libvirt_network" "%s" {
+					name      = "%s"
+					mode      = "nat"
+					domain    = "k8s.local"
+					addresses = ["10.17.3.0/24"]
+					running   = false
+				}`, randomNetworkResource, randomNetworkName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckNetworkExists("libvirt_network."+randomNetworkResource, &network),
+					resource.TestCheckResourceAttr("libvirt_network."+randomNetworkResource, "running", "false"),
+					testAccCheckNetworkActive("libvirt_network."+randomNetworkResource, false),
+				),
+			},
+		},
+	})
+}

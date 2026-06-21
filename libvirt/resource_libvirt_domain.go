@@ -716,6 +716,10 @@ func resourceLibvirtDomainUpdate(d *schema.ResourceData, meta interface{}) error
 
 	d.Partial(false)
 
+	if err := destroyDomainByUserRequest(d, domain); err != nil {
+		return err
+	}
+
 	return nil
 }
 

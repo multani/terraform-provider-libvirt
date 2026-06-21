@@ -831,18 +831,56 @@ func destroyDomainByUserRequest(d *schema.ResourceData, domain *libvirt.Domain) 
 	}
 
 	domainID, err := domain.GetUUIDString()
-
 	if err != nil {
 		return fmt.Errorf("Error retrieving libvirt domain id: %s", err)
 	}
 
-	log.Printf("Destroying libvirt domain %s", domainID)
+	log.Printf("[INFO] Shutting down libvirt domain %s", domainID)
+	return domainShutdown(domain, domShutdownTimeout)
+}
+
+const domShutdownTimeout = 1 * time.Minute
+const domShutdownStillRunning = "still-running"
+const domShutdownDone = "shutoff"
+
+// domainShutdown asks the domain to shut down gracefully (ACPI) and waits
+// for it to actually stop. If it hasn't stopped within timeout, it forces
+// it off, since a guest OS may not respond to the ACPI request at all.
+func domainShutdown(domain *libvirt.Domain, timeout time.Duration) error {
 	state, _, err := domain.GetState()
 	if err != nil {
 		return fmt.Errorf("Couldn't get info about domain: %s", err)
 	}
+	if state != libvirt.DOMAIN_RUNNING && state != libvirt.DOMAIN_PAUSED {
+		return nil
+	}
 
-	if state == libvirt.DOMAIN_RUNNING || state == libvirt.DOMAIN_PAUSED {
+	if err := domain.Shutdown(); err != nil {
+		return fmt.Errorf("Couldn't shutdown libvirt domain: %s", err)
+	}
+
+	waitFunc := func() (interface{}, string, error) {
+		state, _, err := domain.GetState()
+		if err != nil {
+			return false, "", err
+		}
+		if state == libvirt.DOMAIN_SHUTOFF || state == libvirt.DOMAIN_CRASHED {
+			return true, domShutdownDone, nil
+		}
+		return false, domShutdownStillRunning, nil
+	}
+
+	stateConf := &resource.StateChangeConf{
+		Pending:    []string{domShutdownStillRunning},
+		Target:     []string{domShutdownDone},
+		Refresh:    waitFunc,
+		Timeout:    timeout,
+		MinTimeout: 2 * time.Second,
+		Delay:      2 * time.Second,
+	}
+
+	if _, err := stateConf.WaitForState(); err != nil {
+		log.Printf("[WARN] domain did not shut down gracefully within %s, forcing it off: %s", timeout, err)
 		if err := domain.Destroy(); err != nil {
 			return fmt.Errorf("Couldn't destroy libvirt domain: %s", err)
 		}

@@ -90,6 +90,11 @@ func resourceLibvirtNetwork() *schema.Resource {
 				Optional: true,
 				Required: false,
 			},
+			"running": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  true,
+			},
 			"dns": {
 				Type:     schema.TypeList,
 				Optional: true,
@@ -335,10 +340,16 @@ func resourceLibvirtNetworkUpdate(d *schema.ResourceData, meta interface{}) erro
 		return fmt.Errorf("Error when getting network %s status during update: %s", networkName, err)
 	}
 
-	if !active {
+	wantRunning := d.Get("running").(bool)
+	if wantRunning && !active {
 		log.Printf("[DEBUG] Activating network %s", networkName)
 		if err := network.Create(); err != nil {
 			return fmt.Errorf("Error when activating network %s during update: %s", networkName, err)
+		}
+	} else if !wantRunning && active {
+		log.Printf("[DEBUG] Deactivating network %s", networkName)
+		if err := network.Destroy(); err != nil {
+			return fmt.Errorf("Error when deactivating network %s during update: %s", networkName, err)
 		}
 	}
 
@@ -548,6 +559,12 @@ func resourceLibvirtNetworkCreate(d *schema.ResourceData, meta interface{}) erro
 		}
 	}
 
+	if !d.Get("running").(bool) {
+		if err := network.Destroy(); err != nil {
+			return fmt.Errorf("Error deactivating libvirt network: %s", err)
+		}
+	}
+
 	return resourceLibvirtNetworkRead(d, meta)
 }
 
@@ -594,6 +611,12 @@ func resourceLibvirtNetworkRead(d *schema.ResourceData, meta interface{}) error 
 		return fmt.Errorf("Error reading network autostart setting: %s", err)
 	}
 	d.Set("autostart", autostart)
+
+	active, err := network.IsActive()
+	if err != nil {
+		return fmt.Errorf("Error reading network active state: %s", err)
+	}
+	d.Set("running", active)
 
 	// read add the IP addresses
 	addresses := []string{}
